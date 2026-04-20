@@ -1,5 +1,5 @@
 <h1>Imapsync GUI</h1>
-A simple graphical user interface (GUI) for <b>imapsync</b>, allowing convenient mailbox migration without using the command line, using only basic authentication.
+Simple graphical user interface (GUI) for <b>imapsync</b>, allowing convenient mailbox migration without using the command line, using only basic authentication.
 
 <h2>Features</h2>
 
@@ -27,7 +27,7 @@ imapsync
 
 <h2>Demo</h2>
 
-![login_page](https://github.com/user-attachments/assets/6d06bceb-53f3-4c01-b8e6-a8f1ea56db2d)
+![img](https://github.com/user-attachments/assets/9b66b4c0-c0e2-4ccc-94d6-337a0864755e)
 
 
 <h2>License</h2>
