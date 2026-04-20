@@ -1,0 +1,20 @@
+{
+  "port": 3000,
+  "https": false,
+  "ssl": {
+    "key": "",
+    "cert": ""
+  },
+  "rateLimit": {
+    "description": "Available data limit: maximum 5 requests every 15 minutes(900000 ms) per IP",
+    "interval": 900000,
+    "max": 5
+  },
+  "jobs": {
+    "description": "maxConcurrent: concurrent jobs limit, maxLogEntries: 2000 logs in RAM, timeoutMs: 2h max per job (7200000 ms), cleanupMs: cleanup logs every 5 minutes(300000 ms) after job completion",
+    "maxConcurrent": 10,
+    "maxLogEntries": 2000,
+    "timeoutMs": 7200000,
+    "cleanupMs": 300000
+  }
+}

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Imapsync GUI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  </head>
+  <body class="bg-body-tertiary">
+    <div class="container py-3">
+      <div class="row justify-content-center">
+        <div class="col-12 col-xl-9">
+          <div class="d-flex align-items-center mb-2">
+            <img src="/assets/logo.png" alt="Imapsync GUI - Logo" width="200" height="64">
+            <h1 class="fs-3 mb-0">Imapsync GUI</h1>
+          </div>
+          <div class="card shadow-sm mb-3 rounded">
+            <div class="card-body p-4">
+              <form id="syncForm">
+                <div class="row g-4">
+                  <div class="col-md-6">
+                    <div class="p-3 bg-body-tertiary rounded border border-light">
+                      <h2 class="fs-4">Source</h2>
+                      <div class="input-group mb-3">
+                        <span class="input-group-text" id="host1-icon">
+                          <i class="bi bi-hdd-stack"></i>
+                        </span>
+                        <input type="text" id="host1" class="form-control" placeholder="Host / Server" required aria-label="Host source" aria-describedby="host1-icon">
+                      </div>
+                      <div class="input-group mb-3">
+                        <span class="input-group-text" id="user1-icon">
+                          <i class="bi bi-person"></i>
+                        </span>
+                        <input type="text" id="user1" class="form-control" placeholder="User" required aria-label="User source" aria-describedby="user1-icon">
+                      </div>
+                      <div class="input-group mb-3">
+                        <span class="input-group-text" id="password1-icon">
+                          <i class="bi bi-lock"></i>
+                        </span>
+                        <input type="password" id="pass1" class="form-control" placeholder="Password" required aria-label="Password source" aria-describedby="password1-icon">
+                        <span class="input-group-text">
+                          <i class="bi bi-eye-slash" style="cursor: pointer;"></i>
+                        </span>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ssl1">
+                        <label class="form-check-label" for="ssl1">SSL</label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="p-3 bg-body-tertiary rounded border border-light">
+                      <h2 class="fs-4">Target</h2>
+                      <div class="input-group mb-3">
+                        <span class="input-group-text" id="host2-icon">
+                          <i class="bi bi-hdd-stack"></i>
+                        </span>
+                        <input type="text" id="host2" class="form-control" placeholder="Host / Server" required aria-label="Host target" aria-describedby="host2-icon">
+                      </div>
+                      <div class="input-group mb-3">
+                        <span class="input-group-text" id="user2-icon">
+                          <i class="bi bi-person"></i>
+                        </span>
+                        <input type="text" id="user2" class="form-control" placeholder="User" required aria-label="User target" aria-describedby="user2-icon">
+                      </div>
+                      <div class="input-group mb-3">
+                        <span class="input-group-text" id="password2-icon">
+                          <i class="bi bi-lock"></i>
+                        </span>
+                        <input type="password" id="pass2" class="form-control" placeholder="Password" required aria-label="Password target" aria-describedby="password2-icon">
+                        <span class="input-group-text">
+                          <i class="bi bi-eye-slash" style="cursor: pointer;"></i>
+                        </span>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="ssl2">
+                        <label class="form-check-label" for="ssl2">SSL</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                  <button id="startBtn" class="btn btn-primary" type="submit">Start</button>
+                  <button id="stopBtn" class="btn btn-danger" type="button" disabled>Stop</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div id="alertBox"></div>
+          <div class="card shadow-sm rounded">
+            <div class="card-header bg-white">Logs</div>
+            <div class="card-body">
+              <div id="logs" class="rounded-2 p-3 overflow-auto bg-dark text-info" style="font-size: 12px; height:240px; white-space: pre-wrap;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+    // Show/hide password — delegated event to avoid fragile parent traversal
+    $(".input-group").on("click", "i[class*='bi-eye']", function() {
+      const $input = $(this).closest(".input-group").find("input");
+      const isPassword = $input.attr("type") === "password";
+      $input.attr("type", isPassword ? "text" : "password");
+      $(this).toggleClass("bi-eye-slash bi-eye");
+    });
+
+    // Polling interval handler, current jobId and last shown alert cache
+    let poller, currentJobId = null, lastAlert = "";
+
+    // Cached jQuery selectors for performance
+    const $logs = $("#logs");
+    const $start = $("#startBtn");
+    const $stop = $("#stopBtn");
+
+    // Display alert message (prevents duplicates)
+    const showAlert = (type, msg) => {
+      if (lastAlert === msg) return;
+      lastAlert = msg;
+      const $div = $("<div>").addClass(`alert alert-${type}`).text(msg);
+      $("#alertBox").empty().append($div);
+    };
+
+    // Check if sync process finished and return status message
+    const checkFinished = logs => {
+      const m = logs.match(/finished:\s*(\d+)/i);
+      if (!m) return;
+      return m[1] == 0 ? { type: "success", msg: "Synchronization completed" } : { type: "danger", msg: "Connection error. Please check your access details or try again later!" };
+    };
+
+    // Fetch logs from server and update UI
+    const loadLogs = () => {
+      if (!currentJobId) return;
+      $.get("/logs?jobId=" + currentJobId + "&ts=" + Date.now(), data => {
+        const logs = (data.logs || []).join("\n");
+        if (logs) {
+          $logs.text(logs.slice(-20000));
+          $logs.scrollTop($logs[0].scrollHeight);
+        }
+
+        const alert = checkFinished(logs);
+        if (alert) showAlert(alert.type, alert.msg);
+
+        if (!data.running) {
+          stopPolling();
+          setRunning(false);
+        }
+      });
+    };
+
+    // Start periodic log polling
+    const startPolling = () => {
+      stopPolling();
+      poller = setInterval(loadLogs, 1000);
+    };
+
+    // Stop polling
+    const stopPolling = () => {
+      clearInterval(poller);
+      poller = null;
+    };
+
+    // Central state — toggle button availability
+    const setRunning = (isRunning) => {
+      $start.prop("disabled", isRunning).html(isRunning ? "<span class='spinner-border spinner-border-sm me-2'></span>Running..." : "Start");
+      $stop.prop("disabled", !isRunning);
+    };
+
+    // Handle form submit and start sync process
+    $("#syncForm").on("submit", e => {
+      e.preventDefault();
+
+      // Build request payload dynamically from form fields
+      const payload = Object.fromEntries(["host1", "user1", "pass1", "host2", "user2", "pass2"].map(id => [id, $(`#${id}`).val()]));
+
+      // Add SSL options
+      payload.ssl1 = $("#ssl1").is(":checked");
+      payload.ssl2 = $("#ssl2").is(":checked");
+
+      // Send sync request to backend
+      $.ajax({
+        url: "/sync",
+        method: "POST",
+        contentType: "application/json",
+        data: JSON.stringify(payload),
+        success: (res) => {
+          currentJobId = res.jobId;
+          $("#alertBox").empty();
+          lastAlert = "";
+          $logs.text("Starting...\n");
+          setRunning(true);
+          startPolling();
+          loadLogs();
+        },
+        error: (xhr) => {
+          const msg = xhr.responseJSON?.message || "Request failed";
+          showAlert("danger", msg);
+        }
+      });
+    });
+
+    // Stop sync process
+    $stop.on("click", () => {
+      if (!currentJobId) return;
+      $.ajax({
+        url: "/stop",
+        method: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ jobId: currentJobId }),
+        success: () => {
+          stopPolling();
+          setRunning(false);
+          showAlert("danger", "Synchronization stopped");
+          currentJobId = null;
+        }
+      });
+    });
+    </script>
+  </body>
+</html>
+
